@@ -12,7 +12,7 @@ class DataPoint(BaseModel):
     impressions: float
     averagePosition: float
 
-@app.post("/predict")
+@app.post("/forecast")
 def predict(data: List[DataPoint]):
     df = pd.DataFrame([d.dict() for d in data])
     
