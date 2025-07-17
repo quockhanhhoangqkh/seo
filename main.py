@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from pydantic import BaseModel
 from typing import List
 import pandas as pd
@@ -6,39 +6,50 @@ from prophet import Prophet
 
 app = FastAPI()
 
+
 class DataPoint(BaseModel):
     ds: str
     organic_clicks: float
     impressions: float
     averagePosition: float
 
-class RequestBody(BaseModel):
+
+class ForecastRequest(BaseModel):
     data: List[DataPoint]
 
-@app.post("/forecast")
-def forecast(body: RequestBody):
-    df = pd.DataFrame([d.dict() for d in body.data])
-    
-    # Rename y column for Prophet
-    df.rename(columns={"organic_clicks": "y"}, inplace=True)
 
-    # Train model
+@app.post("/forecast")
+def forecast(request: ForecastRequest):
+    df = pd.DataFrame([d.dict() for d in request.data])
+
+    # Rename target column
+    df = df.rename(columns={"organic_clicks": "y"})
+
+    # Initialize model
     model = Prophet()
     model.add_regressor("impressions")
     model.add_regressor("averagePosition")
+
+    # Fit model
     model.fit(df)
 
-    # ⚠️ Tạo future 30 ngày tiếp theo
-    future_dates = pd.date_range(start=df["ds"].max(), periods=30, freq="D")[1:]  # bỏ ngày cuối đã có
-    # Giữ nguyên giá trị cuối cùng của các biến đầu vào để dự báo
-    last_impr = df["impressions"].iloc[-1]
-    last_pos = df["averagePosition"].iloc[-1]
+    # Prepare future dataframe (30 days ahead)
+    last_date = pd.to_datetime(df["ds"].max())
+    future_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=30)
 
-    future = pd.DataFrame({
+    # Fill future regressor values with median of training set
+    median_impressions = df["impressions"].median()
+    median_position = df["averagePosition"].median()
+
+    future_df = pd.DataFrame({
         "ds": future_dates,
-        "impressions": last_impr,
-        "averagePosition": last_pos
+        "impressions": median_impressions,
+        "averagePosition": median_position
     })
 
-    forecast = model.predict(future)
-    return forecast[["ds", "yhat", "yhat_lower", "yhat_upper"]].to_dict(orient="records")
+    # Predict
+    forecast = model.predict(future_df)
+
+    # Return only needed fields
+    output = forecast[["ds", "yhat", "yhat_lower", "yhat_upper"]]
+    return output.to_dict(orient="records")
