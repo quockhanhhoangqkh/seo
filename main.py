@@ -12,19 +12,19 @@ class DataPoint(BaseModel):
     impressions: float
     averagePosition: float
 
+class ForecastRequest(BaseModel):
+    data: List[DataPoint]
+
 @app.post("/forecast")
-def predict(data: List[DataPoint]):
-    df = pd.DataFrame([d.dict() for d in data])
-    
-    # Khai báo các biến đầu vào
+def forecast(request: ForecastRequest):
+    df = pd.DataFrame([d.dict() for d in request.data])
+
     model = Prophet()
     model.add_regressor("impressions")
     model.add_regressor("averagePosition")
-    
-    model.fit(df.rename(columns={"organic_clicks": "y"}))  # y phải là cột chính
 
-    # Tạo future dataframe, cần giữ nguyên các biến đầu vào!
-    future = df[["ds", "impressions", "averagePosition"]]  # KHÔNG dùng make_future_dataframe
+    model.fit(df.rename(columns={"organic_clicks": "y"}))
+    future = df[["ds", "impressions", "averagePosition"]]
     forecast = model.predict(future)
 
     return forecast[["ds", "yhat", "yhat_lower", "yhat_upper"]].to_dict(orient="records")
