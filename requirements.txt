@@ -1,5 +1,5 @@
 fastapi
-uvicorn[standard]
+uvicorn
 pandas
 prophet
-pydantic
+scikit-learn
