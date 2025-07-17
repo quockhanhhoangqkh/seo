@@ -4,7 +4,13 @@ from typing import List
 import pandas as pd
 from prophet import Prophet
 
-app = FastAPI()
+app = FastAPI(
+    title="SEO Forecast API",
+    version="0.1.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json"
+)
 
 class DataPoint(BaseModel):
     ds: str
